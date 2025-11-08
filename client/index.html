@@ -1,0 +1,154 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>SketchMate</title>
+    <link rel="stylesheet" href="/client/style.css">
+    <link href="https://fonts.googleapis.com/css2?family=Space+Grotesk:wght@400;500;600;700&family=Inter:wght@400;500;600&display=swap" rel="stylesheet">
+</head>
+<body>
+    <div class="container">
+        <!-- Header -->
+        <header class="header">
+            <h1 class="title" data-testid="app-title">SketchMate</h1>
+            
+            <div class="header-info">
+                <span class="user-name" data-testid="current-user-name" id="currentUserName">Guest</span>
+                <span class="room-info" data-testid="room-info" id="roomInfo">Room: default</span>
+            </div>
+        </header>
+
+        <!-- Main Content -->
+        <div class="main-content">
+            <!-- Toolbar -->
+            <div class="toolbar" data-testid="toolbar">
+                <div class="tool-section">
+                    <label class="tool-label">Tool</label>
+                    <div class="tool-buttons">
+                        <button class="tool-btn active" data-testid="brush-tool-btn" id="brushBtn" title="Brush (B)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M12 19l7-7 3 3-7 7-3-3z"></path>
+                                <path d="M18 13l-1.5-7.5L2 2l3.5 14.5L13 18l5-5z"></path>
+                                <path d="M2 2l7.586 7.586"></path>
+                            </svg>
+                        </button>
+                        <button class="tool-btn" data-testid="eraser-tool-btn" id="eraserBtn" title="Eraser (E)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M20 20H7L3 16l10-10 8 8-1 6z"></path>
+                                <path d="M16 13l-8.5 8.5"></path>
+                            </svg>
+                        </button>
+                        <button class="tool-btn" data-testid="rectangle-tool-btn" id="rectangleBtn" title="Rectangle (R)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="3" y="3" width="18" height="18" rx="2" ry="2"></rect>
+                            </svg>
+                        </button>
+                        <button class="tool-btn" data-testid="square-tool-btn" id="squareBtn" title="Square (S)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <rect x="4" y="4" width="16" height="16"></rect>
+                            </svg>
+                        </button>
+                        <button class="tool-btn" data-testid="circle-tool-btn" id="circleBtn" title="Circle (C)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <circle cx="12" cy="12" r="10"></circle>
+                            </svg>
+                        </button>
+                        <button class="tool-btn" data-testid="triangle-tool-btn" id="triangleBtn" title="Triangle (T)">
+                            <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 20h18L12 4z"></path>
+                            </svg>
+                        </button>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <label class="tool-label">Color</label>
+                    <div class="color-picker-container">
+                        <input type="color" id="colorPicker" data-testid="color-picker" value="#6366f1" class="color-picker">
+                        <div class="color-presets" data-testid="color-presets">
+                            <button class="color-preset" data-color="#6366f1" style="background: #6366f1;"></button>
+                            <button class="color-preset" data-color="#ec4899" style="background: #ec4899;"></button>
+                            <button class="color-preset" data-color="#10b981" style="background: #10b981;"></button>
+                            <button class="color-preset" data-color="#f59e0b" style="background: #f59e0b;"></button>
+                            <button class="color-preset" data-color="#000000" style="background: #000000;"></button>
+                        </div>
+                    </div>
+                </div>
+
+                <div class="tool-section">
+                    <label class="tool-label">Width: <span id="widthValue" data-testid="width-value">5</span>px</label>
+                    <input type="range" id="widthSlider" data-testid="width-slider" min="1" max="50" value="5" class="width-slider">
+                </div>
+
+                <div class="tool-section">
+                    <label class="tool-label">Actions</label>
+                    <div class="action-buttons">
+                        <button class="action-btn" data-testid="undo-btn" id="undoBtn" title="Undo (Ctrl+Z)">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M3 7v6h6"></path>
+                                <path d="M21 17a9 9 0 00-9-9 9 9 0 00-6 2.3L3 13"></path>
+                            </svg>
+                            Undo
+                        </button>
+                        <button class="action-btn" data-testid="redo-btn" id="redoBtn" title="Redo (Ctrl+Y)">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <path d="M21 7v6h-6"></path>
+                                <path d="M3 17a9 9 0 019-9 9 9 0 016 2.3l3 2.7"></path>
+                            </svg>
+                            Redo
+                        </button>
+                        <button class="action-btn danger" data-testid="clear-btn" id="clearBtn" title="Clear Canvas">
+                            <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2">
+                                <polyline points="3 6 5 6 21 6"></polyline>
+                                <path d="M19 6v14a2 2 0 01-2 2H7a2 2 0 01-2-2V6m3 0V4a2 2 0 012-2h4a2 2 0 012 2v2"></path>
+                            </svg>
+                            Clear
+                        </button>
+                    </div>
+                </div>
+            </div>
+
+            <!-- Canvas Container -->
+            <div class="canvas-container" data-testid="canvas-container">
+                <canvas id="canvas" data-testid="drawing-canvas"></canvas>
+                <div class="canvas-overlay" id="cursorsOverlay" data-testid="cursors-overlay"></div>
+            </div>
+
+            <!-- Users Panel -->
+            <div class="users-panel" data-testid="users-panel">
+                <h3 class="users-title">Online Users</h3>
+                <div class="users-list" id="usersList" data-testid="users-list">
+                    <!-- Users will be dynamically added here -->
+                </div>
+                <div class="connection-status" data-testid="connection-status">
+                    <div class="status-indicator" id="statusIndicator"></div>
+                    <span class="status-text" id="statusText">Connecting...</span>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- Welcome Modal -->
+    <div class="modal" id="welcomeModal" data-testid="welcome-modal">
+        <div class="modal-content">
+            <h2 class="modal-title">Join Canvas</h2>
+            <form id="joinForm" data-testid="join-form">
+                <div class="form-group">
+                    <label for="userName">Your Name</label>
+                    <input type="text" id="userName" data-testid="user-name-input" placeholder="Enter your name" required autocomplete="off">
+                </div>
+                <div class="form-group">
+                    <label for="roomName">Room Name</label>
+                    <input type="text" id="roomName" data-testid="room-name-input" placeholder="default" value="default" autocomplete="off">
+                </div>
+                <button type="submit" class="submit-btn" data-testid="join-btn">Join Canvas</button>
+            </form>
+        </div>
+    </div>
+
+    <script src="/client/canvas.js"></script>
+    <script src="/client/websocket.js"></script>
+    <script src="/client/main.js"></script>
+</body>
+</html>
