@@ -1,10 +1,12 @@
 const DrawingState = require('./drawing-state');
 
+// this class is going to manage rooms, users(add, remove, get all users), and drawing states(undo, redo, clear, current state of canvas).
 class RoomManager {
   constructor() {
     this.rooms = new Map();
   }
   
+  // get the room by roomid, if not exist create new room
   getRoom(roomId) {
     if (!this.rooms.has(roomId)) {
       this.rooms.set(roomId, {
@@ -14,7 +16,9 @@ class RoomManager {
     }
     return this.rooms.get(roomId);
   }
+
   
+  // add user to that particular roomid user wanted to join 
   addUser(roomId, userId, userName, ws) {
     const room = this.getRoom(roomId);
     room.users.set(userId, {
@@ -25,6 +29,7 @@ class RoomManager {
     });
   }
   
+  // remove user from that particular roomid 
   removeUser(roomId, userId) {
     const room = this.getRoom(roomId);
     room.users.delete(userId);
@@ -34,7 +39,7 @@ class RoomManager {
       this.rooms.delete(roomId);
     }
   }
-  
+  // get all users in a room
   getUsers(roomId) {
     const room = this.getRoom(roomId);
     return Array.from(room.users.values()).map(user => ({
@@ -42,15 +47,16 @@ class RoomManager {
       name: user.name
     }));
   }
-  
-  broadcast(roomId, message, excludeUserId = null) {
+
+  // send message to all users in a room except the users who exited
+  broadcast(roomId, msg, exclude_uId = null) {
     const room = this.getRoom(roomId);
-    const messageStr = JSON.stringify(message);
-    
+    const msgStr = JSON.stringify(msg);
+
     room.users.forEach((user, userId) => {
-      if (userId !== excludeUserId && user.ws.readyState === 1) { // 1 = OPEN
+      if (userId !== exclude_uId && user.ws.readyState === 1) { // 1 = OPEN
         try {
-          user.ws.send(messageStr);
+          user.ws.send(msgStr);
         } catch (error) {
           console.error(`Error sending to user ${userId}:`, error);
         }
@@ -58,30 +64,38 @@ class RoomManager {
     });
   }
   
-  addOperation(roomId, operation) {
-    const room = this.getRoom(roomId);
-    room.drawingState.addOperation(operation);
+
+
+  // Drawing state management methods
+  addOperation(roomId, op) {
+    const r = this.getRoom(roomId);
+    r.drawingState.addOperation(op);
   }
-  
+
+  // Undo the last drawing operation
   undo(roomId) {
-    const room = this.getRoom(roomId);
-    return room.drawingState.undo();
+    const r = this.getRoom(roomId);
+    return r.drawingState.undo();
   }
-  
+
+  // Redo the last undone drawing operation
   redo(roomId) {
-    const room = this.getRoom(roomId);
-    return room.drawingState.redo();
+    const r = this.getRoom(roomId);
+    return r.drawingState.redo();
   }
-  
+
+  // Clear the canvas
   clearCanvas(roomId) {
-    const room = this.getRoom(roomId);
-    room.drawingState.clear();
+    const r = this.getRoom(roomId);
+    r.drawingState.clear();
   }
   
+  // Get the current state of the canvas
   getCanvasState(roomId) {
-    const room = this.getRoom(roomId);
-    return room.drawingState.getState();
+    const r = this.getRoom(roomId);
+    return r.drawingState.getState();
   }
 }
+
 
 module.exports = RoomManager;

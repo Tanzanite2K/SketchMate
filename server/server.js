@@ -1,33 +1,40 @@
 const http = require('http');
+
 const fs = require('fs');
 const path = require('path');
 const WebSocket = require('ws');
+
 const DrawingState = require('./drawing-state');
 const RoomManager = require('./rooms');
 
 const PORT = process.env.PORT || 8080;
 
 // MIME types for serving static files
+
 const MIME_TYPES = {
-  '.html': 'text/html',
-  '.css': 'text/css',
-  '.js': 'application/javascript',
-  '.json': 'application/json',
-  '.png': 'image/png',
   '.jpg': 'image/jpeg',
   '.gif': 'image/gif',
+  '.png': 'image/png',
+  '.js': 'application/javascript',
   '.svg': 'image/svg+xml',
+  '.json': 'application/json',
+  '.html': 'text/html',
+  '.css': 'text/css',
   '.ico': 'image/x-icon'
 };
 
-// Create HTTP server
+// Creataing HTTP server to serve static files
 const server = http.createServer((req, res) => {
+
   let filePath = req.url === '/' ? '/client/index.html' : req.url;
+
   filePath = path.join(__dirname, '..', filePath);
   
   const extname = path.extname(filePath);
   const contentType = MIME_TYPES[extname] || 'application/octet-stream';
   
+
+  // Read the requested file into memory
   fs.readFile(filePath, (error, content) => {
     if (error) {
       if (error.code === 'ENOENT') {
@@ -35,22 +42,26 @@ const server = http.createServer((req, res) => {
         res.end('<h1>404 - File Not Found</h1>', 'utf-8');
       } else {
         res.writeHead(500);
+        console.error('Server error:', error);
         res.end('Server Error: ' + error.code);
       }
     } else {
       res.writeHead(200, { 'Content-Type': contentType });
       res.end(content, 'utf-8');
     }
+
   });
 });
 
-// Create WebSocket server
+// Creating a WebSocket server
 const wss = new WebSocket.Server({ server });
 
-// Initialize room manager
+// Initialize the room manager
 const roomManager = new RoomManager();
 
+// Handling WebSocket connections
 wss.on('connection', (ws) => {
+
   console.log('New client connected');
   
   let userId = null;
@@ -62,35 +73,38 @@ wss.on('connection', (ws) => {
       
       switch(data.type) {
         case 'JOIN':
+          console.log(`User ${data.userId} joined room ${data.room}`);
           userId = data.userId;
-          currentRoom = data.room || 'default';
+          currRoom = data.room || 'default';
           
           // Add user to room
-          roomManager.addUser(currentRoom, userId, data.userName, ws);
+          roomManager.addUser(currRoom, userId, data.userName, ws);
           
-          // Send current canvas state to new user
-          const currentState = roomManager.getCanvasState(currentRoom);
+
+          // Send current canvas state to new user *
+          const currState = roomManager.getCanvasState(currRoom);
           ws.send(JSON.stringify({
             type: 'INIT_STATE',
-            operations: currentState.operations,
-            users: roomManager.getUsers(currentRoom)
+            operations: currState.operations,
+            users: roomManager.getUsers(currRoom)
           }));
-          
-          // Broadcast user joined to others
-          roomManager.broadcast(currentRoom, {
+          // notify other users that a new user has joined
+          roomManager.broadcast(currRoom, {
             type: 'USER_JOINED',
             userId: userId,
             userName: data.userName,
             color: data.color,
-            users: roomManager.getUsers(currentRoom)
+            users: roomManager.getUsers(currRoom)
           }, userId);
           
-          console.log(`User ${userId} joined room ${currentRoom}`);
+
+
+          console.log(`User ${userId} joined room ${currRoom}`);
           break;
           
         case 'DRAW_START':
           // Broadcast draw start to all users in room
-          roomManager.broadcast(currentRoom, {
+          roomManager.broadcast(currRoom, {
             type: 'DRAW_START',
             userId: userId,
             x: data.x,
@@ -101,8 +115,9 @@ wss.on('connection', (ws) => {
           });
           break;
           
+
         case 'DRAW':
-          // Store operation and broadcast
+          // Store operation and broadcast to all users in room
           const operation = {
             type: 'DRAW',
             userId: userId,
@@ -112,9 +127,9 @@ wss.on('connection', (ws) => {
             tool: data.tool,
             timestamp: Date.now()
           };
-          
           roomManager.addOperation(currentRoom, operation);
           
+
           roomManager.broadcast(currentRoom, {
             type: 'DRAW',
             userId: userId,
@@ -125,8 +140,9 @@ wss.on('connection', (ws) => {
           });
           break;
           
+
         case 'CURSOR':
-          // Broadcast cursor position
+          // Broadcast cursor position to other users
           roomManager.broadcast(currentRoom, {
             type: 'CURSOR',
             userId: userId,
@@ -136,7 +152,7 @@ wss.on('connection', (ws) => {
           break;
           
         case 'UNDO':
-          // Global undo - remove last operation
+          // Global undo => remove last operation from canvas
           const undoneOp = roomManager.undo(currentRoom);
           if (undoneOp) {
             roomManager.broadcast(currentRoom, {
@@ -147,8 +163,9 @@ wss.on('connection', (ws) => {
           }
           break;
           
+
         case 'REDO':
-          // Global redo - restore last undone operation
+          // Global redo => restore last operation to canvas
           const redoneOp = roomManager.redo(currentRoom);
           if (redoneOp) {
             roomManager.broadcast(currentRoom, {
@@ -159,39 +176,47 @@ wss.on('connection', (ws) => {
           }
           break;
           
+
         case 'CLEAR':
-          // Clear canvas
+          // Clear canvas and notify all users
           roomManager.clearCanvas(currentRoom);
           roomManager.broadcast(currentRoom, {
             type: 'CLEAR'
           });
           break;
           
+
         default:
           console.log('Unknown message type:', data.type);
       }
     } catch (error) {
       console.error('Error processing message:', error);
     }
+
   });
   
   ws.on('close', () => {
     if (userId) {
+      roomManager.removeUser(currRoom, userId);
       roomManager.removeUser(currentRoom, userId);
       roomManager.broadcast(currentRoom, {
         type: 'USER_LEFT',
         userId: userId,
         users: roomManager.getUsers(currentRoom)
       });
+
       console.log(`User ${userId} disconnected from room ${currentRoom}`);
     }
   });
   
+
   ws.on('error', (error) => {
     console.error('WebSocket error:', error);
   });
+
 });
 
 server.listen(PORT, () => {
+  
   console.log(`Server running on http://localhost:${PORT}`);
 });
