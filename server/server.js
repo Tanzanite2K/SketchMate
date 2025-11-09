@@ -65,7 +65,7 @@ wss.on('connection', (ws) => {
   console.log('New client connected');
   
   let userId = null;
-  let currentRoom = 'default';
+  let currRoom = 'default';
   
   ws.on('message', (message) => {
     try {
@@ -127,10 +127,10 @@ wss.on('connection', (ws) => {
             tool: data.tool,
             timestamp: Date.now()
           };
-          roomManager.addOperation(currentRoom, operation);
+          roomManager.addOperation(currRoom, operation);
           
 
-          roomManager.broadcast(currentRoom, {
+          roomManager.broadcast(currRoom, {
             type: 'DRAW',
             userId: userId,
             points: data.points,
@@ -143,7 +143,7 @@ wss.on('connection', (ws) => {
 
         case 'CURSOR':
           // Broadcast cursor position to other users
-          roomManager.broadcast(currentRoom, {
+          roomManager.broadcast(currRoom, {
             type: 'CURSOR',
             userId: userId,
             x: data.x,
@@ -153,12 +153,12 @@ wss.on('connection', (ws) => {
           
         case 'UNDO':
           // Global undo => remove last operation from canvas
-          const undoneOp = roomManager.undo(currentRoom);
+          const undoneOp = roomManager.undo(currRoom);
           if (undoneOp) {
-            roomManager.broadcast(currentRoom, {
+            roomManager.broadcast(currRoom, {
               type: 'UNDO',
               operation: undoneOp,
-              operations: roomManager.getCanvasState(currentRoom).operations
+              operations: roomManager.getCanvasState(currRoom).operations
             });
           }
           break;
@@ -166,12 +166,12 @@ wss.on('connection', (ws) => {
 
         case 'REDO':
           // Global redo => restore last operation to canvas
-          const redoneOp = roomManager.redo(currentRoom);
+          const redoneOp = roomManager.redo(currRoom);
           if (redoneOp) {
-            roomManager.broadcast(currentRoom, {
+            roomManager.broadcast(currRoom, {
               type: 'REDO',
               operation: redoneOp,
-              operations: roomManager.getCanvasState(currentRoom).operations
+              operations: roomManager.getCanvasState(currRoom).operations
             });
           }
           break;
@@ -179,8 +179,8 @@ wss.on('connection', (ws) => {
 
         case 'CLEAR':
           // Clear canvas and notify all users
-          roomManager.clearCanvas(currentRoom);
-          roomManager.broadcast(currentRoom, {
+          roomManager.clearCanvas(currRoom);
+          roomManager.broadcast(currRoom, {
             type: 'CLEAR'
           });
           break;
@@ -198,14 +198,14 @@ wss.on('connection', (ws) => {
   ws.on('close', () => {
     if (userId) {
       roomManager.removeUser(currRoom, userId);
-      roomManager.removeUser(currentRoom, userId);
-      roomManager.broadcast(currentRoom, {
+      roomManager.removeUser(currRoom, userId);
+      roomManager.broadcast(currRoom, {
         type: 'USER_LEFT',
         userId: userId,
-        users: roomManager.getUsers(currentRoom)
+        users: roomManager.getUsers(currRoom)
       });
 
-      console.log(`User ${userId} disconnected from room ${currentRoom}`);
+      console.log(`User ${userId} disconnected from room ${currRoom}`);
     }
   });
   
