@@ -1,133 +1,155 @@
-# Architecture
-
-This document describes the high-level architecture, data flow and protocol used by this collaborative canvas project. It is written to match the current implementation in the repository (`server/server.js`, `server/rooms.js`, `server/drawing-state.js`, `client/websocket.js`, `client/canvas.js`).
+# Architechture
+This docment try’s to explane the high level architechure, dataflow & protcol used in this colaborative canvas thingy. its kinda matched with whats implimented right now in the repo (`server/server.js`, `server/rooms.js`, `server/drawing-state.js`, `client/websocket.js`, `client/canvas.js`).
 
 ## Data Flow Diagram
+So basiclly how data goes (user -> client -> server -> other clients):
 
-Textual diagram (user -> client -> server -> other clients):
+User A (browser):
 
-User A (browser)
-  └─> User input (mouse/touch) captured by `client/canvas.js`
-       ├─> local incremental draw on canvas (fast local feedback)
-       ├─> `WebSocketManager.sendDrawStart` when stroke starts
-       └─> `WebSocketManager.sendDraw` when stroke finishes (sends points array)
-            └─> WebSocket message to server (`server/server.js`)
-                 ├─> `rooms.js` stores operation on the room's `DrawingState`
-                 └─> `rooms.js` broadcasts the `DRAW` message to all connected clients in the room
-                      └─> Other clients' `client/websocket.js` receive `DRAW`
-                           └─> `client/canvas.js` draws the operation and appends it to local operations history
+1. When the user moves mouse/touch – its caputred by `client/canvas.js`
+   * It draws localy on canvas fast so user sees it right away (fast feedback duh)
+   * `WebSocketManager.sendDrawStart` fires when stroke starts
+   * `WebSocketManager.sendDraw` goes when stroke ends (it sends a list of points `[x,y]`)
+
+2. Then this goes as Websocket msg -> Server (`server/server.js`)
+   * `rooms.js` saves this action into room’s `DrawingState`
+   * and then `rooms.js` emits a `DRAW` msg to all ppl in that room
+
+3. **Other clients (`client/websocket.js`)**
+   * Get that `DRAW` msg
+   * then `client/canvas.js` replays that stroke and adds to local histroy
 
 Notes:
-- The server is authoritative for room membership and the canonical operations list. New clients receive an `INIT_STATE` snapshot when they join.
-- Cursors are sent frequently but throttled on the client (50ms) and broadcasted to other clients to show live pointer positions.
+* Server is the boss, it controls room members & keeps the main list of operations. New clients get `INIT_STATE` when they join.
+* Cursors r sent very often but throttled (50ms ish) so not to spam, others see where ur pointer is.
 
-## WebSocket Protocol (messages)
 
-All messages are JSON objects with a `type` field. The project implements the following message types (direction indicated):
+## WebSocket Protcol (msgs)
+Every msg is json, with `type` feild. The app has these msgs (dir shown):
 
-- Client -> Server
-  - JOIN
-    - { type: 'JOIN', userId, userName, room?, color }
-    - Client announces itself and which room to join. Server responds with `INIT_STATE`.
+### Client → Server
 
-  - DRAW_START
-    - { type: 'DRAW_START', x, y, color, width, tool }
-    - Optional: used for immediate local cursor feedback; broadcast to other clients so they can show a starting point.
+* **JOIN**
 
-  - DRAW
-    - { type: 'DRAW', points, color, width, tool }
-    - Sent at the end of a stroke (array of {x,y} points). Server appends the operation to room history and broadcasts it.
+  * `{ type: 'JOIN', userId, userName, room?, color }`
+  * client tells which room to join etc. server replies with `INIT_STATE`.
 
-  - CURSOR
-    - { type: 'CURSOR', x, y }
-    - Throttled by client to avoid flooding. Sent frequently to update presence cursors on other clients.
+* **DRAW_START**
 
-  - UNDO
-    - { type: 'UNDO' }
-    - Server performs a global undo (pops last operation) and broadcasts updated operations.
+  * `{ type: 'DRAW_START', x, y, color, width, tool }`
+  * optional msg just to show starting point of stroke to others, instant feedback.
 
-  - REDO
-    - { type: 'REDO' }
-    - Server performs a global redo (restores last undone operation) and broadcasts updated operations.
+* **DRAW**
 
-  - CLEAR
-    - { type: 'CLEAR' }
-    - Clears server-side room history and instructs clients to clear their canvases.
+  * `{ type: 'DRAW', points, color, width, tool }`
+  * sent when stroke finishes. has array of {x,y}. server saves it in histroy n tells others.
 
-- Server -> Client
-  - INIT_STATE
-    - { type: 'INIT_STATE', operations, users }
-    - Sent to a joining client with the full operations array and current users list.
+* **CURSOR**
 
-  - DRAW
-    - { type: 'DRAW', userId, points, color, width, tool }
-    - Broadcast to other clients to apply the operation.
+  * `{ type: 'CURSOR', x, y }`
+  * sent alot but throttled so not spammy. updates user cursors on others screens.
 
-  - DRAW_START
-    - { type: 'DRAW_START', userId, x, y, color, width, tool }
-    - Optional start-of-stroke broadcast.
+* **UNDO**
 
-  - CURSOR
-    - { type: 'CURSOR', userId, x, y }
-    - Update presence cursor for a given user.
+  * `{ type: 'UNDO' }`
+  * server undos the last op, pops it out and broadcast to everyone.
 
-  - UNDO / REDO
-    - { type: 'UNDO'|'REDO', operation?, operations }
-    - After performing an undo/redo the server broadcasts either message and typically includes the new `operations` array so clients can fully re-sync.
+* **REDO**
 
-  - CLEAR
-    - { type: 'CLEAR' }
-    - Instruct clients to clear their canvases.
+  * `{ type: 'REDO' }`
+  * does redo of the last undone op, sends update to all clients.
 
-  - USER_JOINED / USER_LEFT
-    - { type: 'USER_JOINED'|'USER_LEFT', userId, userName?, users }
-    - Presence updates including the current users list.
+* **CLEAR**
 
-Protocol notes:
-- Messages are JSON text. The server does basic parsing and switch-case routing in `server/server.js`.
-- The server includes the `operations` snapshot in `INIT_STATE` and in undo/redo broadcasts so clients can fully re-render when necessary.
+  * `{ type: 'CLEAR' }`
+  * clears the room histroy, all users clear their canvas too.
 
-## Undo/Redo Strategy (global operations)
+---
 
-- Per-room `DrawingState` (implemented in `server/drawing-state.js`) holds:
-  - `operations` — an ordered array of applied operations (each is a stroke object: points[], color, width, tool, timestamp, userId)
-  - `redoStack` — operations popped by undo and held for redo
+### Server → Client
 
-- UNDO behavior (server-side):
-  1. Pop the last operation from `operations` and push it onto `redoStack`.
-  2. Broadcast `UNDO` (and the updated `operations`) to all clients so each client can re-render the canvas from the new list.
+* **INIT_STATE**
 
-- REDO behavior (server-side):
-  1. Pop the last operation from `redoStack` and push it back onto `operations`.
-  2. Broadcast `REDO` (and the updated `operations`) to all clients.
+  * `{ type: 'INIT_STATE', operations, users }`
+  * sent to new client with full history n user list.
 
-Design considerations & implications:
-- The undo/redo is global to the room. There is no per-user undo because the operations array is the single canonical timeline. This simplifies implementation but may be surprising to end users (pressing undo will remove the last stroke even if it belongs to someone else).
-- When an undo/redo occurs, the server broadcasts the full operations list so clients re-draw deterministically from the operations array.
+* **DRAW**
 
-## Performance decisions and optimizations
+  * `{ type: 'DRAW', userId, points, color, width, tool }`
+  * tells other users to draw this stroke.
 
-- Incremental strokes: the client draws locally as the user moves the pointer and only sends a compact representation (array of points) when the stroke is finished. This reduces network chatter compared to sending every mousemove event as a DRAW message.
-- Throttled cursors: client cursor updates are throttled to ~50ms to provide presence without spamming the server.
-- Minimal payloads: `DRAW` contains only the points array and the stroke metadata (color, width, tool). The server broadcasts the same minimal payload instead of sending full canvas images.
-- In-memory per-room state: Using an in-memory `operations` array is the simplest and lowest-latency approach for a demo. For production you should snapshot/compact old operations or persist to a database.
-- Server-side authoritative ordering: The server timestamps/appends operations in arrival order. This creates a single ordering which simplifies replay and undo/redo implementation.
+* **DRAW_START**
 
-Potential enhancements for scale:
-- Operation compacting: periodically merge older strokes into a raster snapshot and discard their raw points to limit memory.
-- Persistence: save operations to a database or object storage and load them on demand.
-- Binary protocol or compression: switch to a compact binary websocket message format or GZIP messages for large point arrays.
-- Sharding rooms across processes/instances: use a message broker (Redis pub/sub) for multiple server instances.
+  * `{ type: 'DRAW_START', userId, x, y, color, width, tool }`
+  * optional broadcast when someone starts drawing.
 
-## Conflict resolution (simultaneous drawing)
+* **CURSOR**
 
-- Current approach: last-writer-wins ordering by arrival. The server appends operations to the room's `operations` array in the order it receives them and then broadcasts them.
+  * `{ type: 'CURSOR', userId, x, y }`
+  * updates pointer for that user.
 
-Implications:
-- If two users draw simultaneously in overlapping areas, both strokes are preserved; the visual result depends on the relative timing and order of playback on clients.
-- There is no merging, OT, or CRDT — the app relies on coarse-grained stroke operations (entire strokes) rather than fine-grained edits, which reduces complexity.
+* **UNDO / REDO**
 
-When to adopt stronger conflict handling:
-- If you need deterministic merging of concurrent edits at a per-pixel or per-stroke subcomponent level, consider a CRDT or OT approach. That is significantly more complex and usually required only for collaborative text or structured documents.
+  * `{ type: 'UNDO'|'REDO', operation?, operations }`
+  * after undo/redo server sends this, mostly includes new `operations` arr so everyone can resync.
 
-## Sequence diagram
+* **CLEAR**
+
+  * `{ type: 'CLEAR' }`
+  * everyone clears their canvas.
+
+* **USER_JOINED / USER_LEFT**
+
+  * `{ type: 'USER_JOINED'|'USER_LEFT', userId, userName?, users }`
+  * updates presence list.
+
+Notes:
+
+* all msgs r json strings, server parses them simple switch-case in `server/server.js`.
+* `INIT_STATE` and undo/redo always include ops snapshot so clients redraw cleanly.
+
+---
+
+## Undo / Redo Strategy (global ops)
+
+Each room has `DrawingState` (in `server/drawing-state.js`) with:
+
+* `operations` → list of all strokes in order (each stroke has: points[], color, width, tool, timestamp, userId)
+* `redoStack` → ops removed by undo, saved for redo
+
+### UNDO (server side)
+
+1. takes last op from `operations`, pushes into `redoStack`
+2. sends `UNDO` msg (with updated ops) to all clients so they re-render canvas
+
+### REDO (server side)
+
+1. pops last op from `redoStack`, adds back to `operations`
+2. sends `REDO` msg (with new ops) to everyone
+
+Design notez:
+* undo/redo is *global* not per user. So any1 pressing undo will remove the latest stroke, even if it was someone elses.
+* to keep all in sync, server sends whole ops list again after undo/redo so everyone draws same thing.
+
+
+## Performance and Optimizations
+* **Incremental strokes:** client draws locally while moving pointer, sends only final array of points later. reduces net traffic instead of spamming every move.
+* **Throttled cursors:** cursors r limited to about every 50ms, so realtime but not spammy.
+* **Small payloads:** `DRAW` only has points, color, width, tool. not full canvas images.
+* **In-memory state:** for demo we just store in mem per room, fast. for real prod you should store in db or snapshot old ops to free mem.
+* **Server ordering:** server stamps and appends ops in order received → makes playback & undo simpler.
+
+### Possible Future Improve
+* Merge old ops into image snapshot sometimes so mem not explode.
+* Save ops to DB or cloud store so persistent history.
+* maybe binary websocket msgs or gzip compress for big arrays.
+* Scale out with redis pub/sub to sync multi servers.
+
+
+## Conflict Resolution (multi ppl drawing same time)
+Now if 2 users draw at same time... current rule is *last writer wins* by order server got them.
+
+So:
+* Both strokes saved.
+* Result depends on order/time the server got & client replay order.
+* no fancy merging or CRDT or OT stuff here — strokes are just big chunks, not per pixel edit. easier & simple.
