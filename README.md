@@ -71,12 +71,16 @@ Example manual steps:
 ## Review 
 # Join Room
 <img width="1919" height="916" alt="image" src="https://github.com/user-attachments/assets/f34dcd7a-71d4-4414-b334-5778247828b8" />
+
 # Sketch 
 <img width="1919" height="906" alt="image" src="https://github.com/user-attachments/assets/693ce25b-3b2b-4eb4-a718-f9ba154992a0" />
 <img width="1919" height="909" alt="image" src="https://github.com/user-attachments/assets/ce8ef8f0-ab57-41c4-b5f2-826d6a6d5ff9" />
+
 # Undo Operation
 <img width="1919" height="918" alt="image" src="https://github.com/user-attachments/assets/436ab841-4260-4f3c-a586-91df71d45c6e" />
+
 # Redo Operation
 <img width="1918" height="910" alt="image" src="https://github.com/user-attachments/assets/3064d0a9-f2bf-40eb-9337-b03c8f8b9985" />
+
 # Clear Operation
 <img width="1919" height="913" alt="image" src="https://github.com/user-attachments/assets/ec430b6b-4dbe-43d5-9201-0e1c2c357ee0" />
